@@ -1,0 +1,11 @@
+LIBRERÍA LAS 3D - PWA V2.4
+
+1. Conserva tu respaldo JSON de la versión HTML anterior.
+2. Sube LOS ARCHIVOS de esta carpeta a un alojamiento web HTTPS que sirva archivos estáticos. No subas solamente index.html.
+3. Abre la dirección HTTPS en Chrome Android.
+4. En el menú de Chrome (⋮) selecciona Instalar aplicación o Agregar a pantalla de inicio.
+5. Abre la aplicación e importa tu respaldo JSON desde Más / Respaldo, antes de crear registros nuevos.
+6. Comprueba productos, clientes, ventas y abonos.
+7. Tras la primera carga completa, prueba sin conexión.
+
+AVISO: el almacenamiento de la nueva dirección HTTPS es distinto al de los archivos locales; no se transfieren los datos solos. Mantén copias del JSON. El hosting HTTPS es un paso necesario y no está incluido en este paquete.
