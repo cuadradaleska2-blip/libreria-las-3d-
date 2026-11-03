@@ -147,4 +147,72 @@ function reportesAvanzados(){let d=today(),m=d.slice(0,7);let sales=db.sales.map
 tabs.push(['cotizaciones','📋 Cotizaciones'],['estadisticas','📈 Estadísticas']);
 render=function(){$('nav').innerHTML=tabs.map(([id,t])=>`<button class="${tab===id?'active':''} ${['servicios','etiquetas','caja','entradas','reportes','cotizaciones','estadisticas'].includes(id)?'extra-tab':''}" onclick="go('${id}')"><span class="nav-icon">${t.split(' ')[0]}</span><span>${t.split(' ').slice(1).join(' ')}</span></button>`).join('');({inicio,productos,ventas,clientes,servicios,etiquetas,inversion,caja,respaldo,entradas,reportes,cotizaciones,estadisticas:reportesAvanzados})[tab]();if(tab==='respaldo'){$('view').querySelector('.panel').insertAdjacentHTML('beforeend','<h3>Nuevas herramientas</h3><div class="actions"><button onclick="go(\'cotizaciones\')">📋 Cotizaciones escolares</button><button onclick="go(\'estadisticas\')">📈 Estadísticas avanzadas</button></div>')}};
 
-render();</script><script>if ("serviceWorker" in navigator && location.protocol.startsWith("http")) { window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(console.warn)); }</script></body></html>
+render();</script><script>if ("serviceWorker" in navigator && location.protocol.startsWith("http")) { window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(console.warn)); }</script>
+<script>
+(function(){
+const init={printer:8000,life:20000,carta:195,legal:215,ream:500,photo:110,photos:20,black:0,blackYield:7500,colors:0,colorYield:5000,photoFactor:3,electricity:0,maintenance:0,labor:0,margin:30};
+db.cost22=Object.assign({},init,db.cost22||{});
+db.fund22=db.fund22||{deposits:[],accruals:[]};
+const C=()=>db.cost22,F=()=>db.fund22;
+const cash=x=>money(Math.round(x*100)/100);
+const wear=()=>C().printer/Math.max(1,C().life);
+const options=[['bn','Impresión blanco y negro'],['color','Impresión a color'],['copy','Fotocopia B/N'],['photo','Fotografía carta completa'],['scan','Escaneo']];
+const previousRender=render;
+tabs.push(['costos22','🧮 Costos'],['ahorros22','🐷 Ahorros']);
+render=function(){
+ if(tab==='costos22'||tab==='ahorros22'){
+ $('nav').innerHTML=tabs.map(([id,t])=>`<button class="${tab===id?'active':''}" onclick="go('${id}')">${t}</button>`).join('');
+ if(tab==='costos22')costos22();else ahorros22();
+ }else{previousRender();if(tab==='respaldo')$('view').insertAdjacentHTML('beforeend',`<section class="panel"><h2>🖨️ Costos y ahorros</h2><div class="actions"><button onclick="go('costos22')">Calculadora</button><button onclick="go('ahorros22')">Fondo de impresora</button></div></section>`);}
+};
+function input(k,label){return `<div><label>${label}</label><input id="cost_${k}" type="number" min="0" step="any" value="${C()[k]}"></div>`}
+window.costos22=function(){
+ $('view').innerHTML=`<section class="panel"><h2>🧮 Costos reales de impresión</h2><p class="muted">Brother DCP-T720DW. Precios editables. Ingresa los precios de reposición de las tintas originales para calcular costos completos.</p><h3>Papel y equipo</h3><div class="grid">${input('carta','Resma carta C$')}${input('legal','Resma legal C$')}${input('ream','Hojas por resma')}${input('photo','Paquete fotográfico carta C$')}${input('photos','Hojas fotográficas por paquete')}${input('printer','Valor de impresora C$')}${input('life','Vida útil estimada en impresiones equivalentes')}</div><h3>Tinta</h3><div class="grid">${input('black','Botella negra C$')}${input('blackYield','Rendimiento tinta negra, páginas')}${input('colors','Juego de tres colores C$')}${input('colorYield','Rendimiento de tintas de colores, páginas')}${input('photoFactor','Factor de consumo fotográfico estimado')}</div><h3>Otros costos por unidad</h3><div class="grid">${input('electricity','Electricidad C$')}${input('maintenance','Mantenimiento C$')}${input('labor','Mano de obra C$')}${input('margin','Margen deseado %')}</div><div class="actions"><button onclick="saveCost22()">Guardar configuración</button></div><h3>Calcular un servicio</h3><div class="grid"><div><label>Servicio</label><select id="kind22" onchange="result22()">${options.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('')}</select></div><div><label>Tamaño</label><select id="paper22" onchange="result22()"><option value="carta">Carta</option><option value="legal">Legal</option></select></div></div><div id="result22" class="notice"></div><div class="actions"><button class="secondary" onclick="go('ahorros22')">Ver ahorro de impresora</button></div></section>`;result22();
+};
+window.saveCost22=function(){
+ let next={...C()};
+ for(const k in init){let v=Number($('cost_'+k).value);if(!Number.isFinite(v)||v<0)return alert('Revisa '+k);next[k]=v;}
+ if(next.life<1||next.ream<1||next.photos<1||next.blackYield<1||next.colorYield<1||next.photoFactor<1||next.margin>=95)return alert('Revisa los rendimientos, las cantidades y el margen.');
+ db.cost22=next;save();result22();alert('Configuración guardada. Descarga un respaldo JSON.');
+};
+window.result22=function(){
+ let x=C(),kind=$('kind22').value,format=$('paper22').value;
+ let paper=kind==='photo'?x.photo/Math.max(1,x.photos):kind==='scan'?0:(format==='carta'?x.carta:x.legal)/Math.max(1,x.ream);
+ let black=x.black/Math.max(1,x.blackYield),color=x.colors/Math.max(1,x.colorYield);
+ let ink=kind==='scan'?0:kind==='bn'||kind==='copy'?black:kind==='color'?black+color:(black+color)*x.photoFactor;
+ let total=paper+ink+x.electricity+x.maintenance+x.labor+wear();
+ let missing=kind!=='scan'&&(x.black===0||(['color','photo'].includes(kind)&&x.colors===0));
+ $('result22').innerHTML=`<b>Papel:</b> ${cash(paper)}<br><b>Tinta estimada:</b> ${cash(ink)}<br><b>Reserva por desgaste:</b> ${cash(wear())}<br><b>Electricidad, mantenimiento y trabajo:</b> ${cash(x.electricity+x.maintenance+x.labor)}<hr><b>Costo estimado:</b> ${cash(total)}<br><b>Precio sugerido:</b> ${cash(total/(1-x.margin/100))}${missing?'<p><b>⚠️ Falta ingresar el precio de tinta: estos totales no son precios mínimos confiables.</b></p>':''}<p class="muted">El rendimiento de tinta fotográfica es una estimación, no una medición. El costo de desgaste no es un gasto de efectivo inmediato.</p>`;
+};
+function totals(){let deposits=F().deposits.reduce((a,t)=>a+(t.type==='in'?t.amount:-t.amount),0),due=F().accruals.reduce((a,t)=>a+t.amount,0);return {deposits,due};}
+window.ahorros22=function(){
+ let t=totals();
+ $('view').innerHTML=`<section class="panel"><h2>🐷 Fondo de reposición Brother</h2><div class="dash-stats"><div class="dash-stat blue"><span>Meta</span><strong>${cash(C().printer)}</strong></div><div class="dash-stat green"><span>Dinero realmente apartado</span><strong>${cash(t.deposits)}</strong></div><div class="dash-stat pink"><span>Reserva calculada</span><strong>${cash(t.due)}</strong></div><div class="dash-stat yellow"><span>Por impresión</span><strong>${cash(wear())}</strong></div></div><p class="muted">El ahorro calculado NO aumenta el dinero guardado. Solo los depósitos registrados lo hacen. Guarda ese dinero físicamente o en una cuenta separada.</p><h3>Registrar movimiento</h3><div class="grid"><div><label>Movimiento</label><select id="fundType"><option value="in">Apartar dinero</option><option value="out">Retirar dinero</option></select></div><div><label>Monto C$</label><input id="fundAmount" type="number" min="0.01" step="0.01"></div><div><label>Motivo</label><input id="fundNote" placeholder="Ej. ahorro semanal"></div></div><div class="actions"><button onclick="fundSave22()">Guardar movimiento</button><button class="secondary" onclick="go('costos22')">Editar meta</button></div><h3>Historial</h3><div class="tablewrap"><table><tr><th>Fecha</th><th>Tipo</th><th>Monto</th></tr>${F().deposits.slice().reverse().map(t=>`<tr><td>${esc(t.date.slice(0,10))}<div class="muted">${esc(t.note)}</div></td><td>${t.type==='in'?'Depósito':'Retiro'}</td><td>${cash(t.amount)}</td></tr>`).join('')||'<tr><td colspan="3">Sin movimientos</td></tr>'}</table></div><h3>Reservas sugeridas por ventas</h3><div class="tablewrap"><table><tr><th>Fecha</th><th>Servicio</th><th>Reserva</th></tr>${F().accruals.slice().reverse().slice(0,30).map(t=>`<tr><td>${esc(t.date.slice(0,10))}</td><td>${esc(t.name)} × ${t.qty}</td><td>${cash(t.amount)}</td></tr>`).join('')||'<tr><td colspan="3">Sin registros</td></tr>'}</table></div></section>`;
+};
+window.fundSave22=function(){
+ let amount=Number($('fundAmount').value),type=$('fundType').value,note=$('fundNote').value.trim();
+ if(!Number.isFinite(amount)||amount<=0)return alert('Ingresa un monto válido.');
+ if(type==='out'&&amount>totals().deposits)return alert('Saldo insuficiente.');
+ if(type==='out'&&!note)return alert('Indica el motivo del retiro.');
+ if(!confirm('¿Confirmar este movimiento?'))return;
+ F().deposits.push({id:uid(),date:now(),amount:Math.round(amount*100)/100,type,note});save();ahorros22();
+};
+const priorServices=servicios;
+servicios=function(){
+ priorServices();
+ $('view').insertAdjacentHTML('afterbegin',`<section class="panel"><div class="actions"><button onclick="go('costos22')">🧮 Calculadora de costos</button><button onclick="go('ahorros22')">🐷 Fondo de ahorro</button></div></section>`);
+ let sel=$('svType');if(sel&&!Array.from(sel.options).some(o=>o.textContent==='Impresión fotográfica carta'))sel.insertAdjacentHTML('beforeend','<option>Impresión fotográfica carta</option>');
+};
+const priorServiceSale=saveServiceSale;
+saveServiceSale=function(){
+ let before=db.serviceSales.length;priorServiceSale();
+ if(db.serviceSales.length>before){
+ let s=db.serviceSales[db.serviceSales.length-1];
+ if(/impresi|fotocopi/i.test(s.name)){
+ F().accruals.push({id:s.id,date:s.date,name:s.name,qty:s.qty,amount:Math.round(wear()*s.qty*100)/100});
+ save();
+ }
+ }
+};
+})();
+</script></body></html>
